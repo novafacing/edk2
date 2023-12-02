@@ -126,7 +126,7 @@
 
 [BuildOptions.common.EDKII.DXE_RUNTIME_DRIVER]
   GCC:*_*_*_DLINK_FLAGS = -z common-page-size=0x1000
-  GCC:*_CLANGSAN40_X64_SAN_FLAGS  = -mllvm -asan-stack=0
+  GCC:*_CLANGSAN_X64_SAN_FLAGS  = -mllvm -asan-stack=0
   XCODE:*_*_*_DLINK_FLAGS = -seg1addr 0x1000 -segalign 0x1000
   XCODE:*_*_*_MTOC_FLAGS = -align 0x1000
   CLANGPDB:*_*_*_DLINK_FLAGS = /ALIGN:4096
@@ -304,11 +304,8 @@
   CpuExceptionHandlerLib|UefiCpuPkg/Library/CpuExceptionHandlerLib/SecPeiCpuExceptionHandlerLib.inf
   CcExitLib|OvmfPkg/Library/CcExitLib/SecCcExitLib.inf
   MemEncryptSevLib|OvmfPkg/Library/BaseMemEncryptSevLib/SecMemEncryptSevLib.inf
-<<<<<<< HEAD
   NULL|MdeModulePkg/Library/AsanLibNull/AsanLibNull.inf
-=======
   CcProbeLib|OvmfPkg/Library/CcProbeLib/SecPeiCcProbeLib.inf
->>>>>>> 70b174e24db4a6de1590fda65846074dcb9fd7d3
 
 [LibraryClasses.common.PEI_CORE]
   HobLib|MdePkg/Library/PeiHobLib/PeiHobLib.inf
@@ -325,11 +322,8 @@
   DebugLib|OvmfPkg/Library/PlatformDebugLibIoPort/PlatformRomDebugLibIoPort.inf
 !endif
   PeCoffLib|MdePkg/Library/BasePeCoffLib/BasePeCoffLib.inf
-<<<<<<< HEAD
   NULL|MdeModulePkg/Library/AsanLibNull/AsanLibNull.inf
-=======
   CcProbeLib|OvmfPkg/Library/CcProbeLib/SecPeiCcProbeLib.inf
->>>>>>> 70b174e24db4a6de1590fda65846074dcb9fd7d3
 
 [LibraryClasses.common.PEIM]
   HobLib|MdePkg/Library/PeiHobLib/PeiHobLib.inf
@@ -359,11 +353,8 @@
   PlatformInitLib|OvmfPkg/Library/PlatformInitLib/PlatformInitLib.inf
 
   MemEncryptSevLib|OvmfPkg/Library/BaseMemEncryptSevLib/PeiMemEncryptSevLib.inf
-<<<<<<< HEAD
   NULL|MdeModulePkg/Library/AsanLibNull/AsanLibNull.inf
-=======
   CcProbeLib|OvmfPkg/Library/CcProbeLib/SecPeiCcProbeLib.inf
->>>>>>> 70b174e24db4a6de1590fda65846074dcb9fd7d3
 
 [LibraryClasses.common.DXE_CORE]
   HobLib|MdePkg/Library/DxeCoreHobLib/DxeCoreHobLib.inf
@@ -456,12 +447,9 @@
   QemuFwCfgS3Lib|OvmfPkg/Library/QemuFwCfgS3Lib/DxeQemuFwCfgS3LibFwCfg.inf
   QemuLoadImageLib|OvmfPkg/Library/X86QemuLoadImageLib/X86QemuLoadImageLib.inf
 
-<<<<<<< HEAD
 !include OvmfPkg/OvmfTpmLibsDxe.dsc.inc
   NULL|MdeModulePkg/Library/AsanLib/AsanLib.inf
 
-=======
->>>>>>> 70b174e24db4a6de1590fda65846074dcb9fd7d3
 [LibraryClasses.common.UEFI_APPLICATION]
   PcdLib|MdePkg/Library/DxePcdLib/DxePcdLib.inf
   TimerLib|OvmfPkg/Library/AcpiTimerLib/DxeAcpiTimerLib.inf
@@ -498,11 +486,8 @@
 !endif
   BaseCryptLib|CryptoPkg/Library/BaseCryptLib/SmmCryptLib.inf
   PciLib|OvmfPkg/Library/DxePciLibI440FxQ35/DxePciLibI440FxQ35.inf
-<<<<<<< HEAD
   NULL|MdeModulePkg/Library/AsanLib/AsanLib.inf
-=======
   SmmCpuRendezvousLib|UefiCpuPkg/Library/SmmCpuRendezvousLib/SmmCpuRendezvousLib.inf
->>>>>>> 70b174e24db4a6de1590fda65846074dcb9fd7d3
 
 [LibraryClasses.common.SMM_CORE]
   PcdLib|MdePkg/Library/DxePcdLib/DxePcdLib.inf

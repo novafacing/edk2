@@ -361,190 +361,6 @@ InitializeRamRegions (
   IN EFI_HOB_PLATFORM_INFO  *PlatformInfoHob
   )
 {
-<<<<<<< HEAD
-  UINT64                      LowerMemorySize;
-  UINT64                      AsanShadowMemorySize;
-  UINT64                      AsanShadowMemoryStart;
-  ASAN_INFO                   AsanInfo;
-
-  QemuInitializeRam ();
-
-  SevInitializeRam ();
-
-  if (mS3Supported && (mBootMode != BOOT_ON_S3_RESUME)) {
-    //
-    // This is the memory range that will be used for PEI on S3 resume
-    //
-    BuildMemoryAllocationHob (
-      mS3AcpiReservedMemoryBase,
-      mS3AcpiReservedMemorySize,
-      EfiACPIMemoryNVS
-      );
-
-    //
-    // Cover the initial RAM area used as stack and temporary PEI heap.
-    //
-    // This is reserved as ACPI NVS so it can be used on S3 resume.
-    //
-    BuildMemoryAllocationHob (
-      PcdGet32 (PcdOvmfSecPeiTempRamBase),
-      PcdGet32 (PcdOvmfSecPeiTempRamSize),
-      EfiACPIMemoryNVS
-      );
-
-    //
-    // SEC stores its table of GUIDed section handlers here.
-    //
-    BuildMemoryAllocationHob (
-      PcdGet64 (PcdGuidedExtractHandlerTableAddress),
-      PcdGet32 (PcdGuidedExtractHandlerTableSize),
-      EfiACPIMemoryNVS
-      );
-
- #ifdef MDE_CPU_X64
-    //
-    // Reserve the initial page tables built by the reset vector code.
-    //
-    // Since this memory range will be used by the Reset Vector on S3
-    // resume, it must be reserved as ACPI NVS.
-    //
-    BuildMemoryAllocationHob (
-      (EFI_PHYSICAL_ADDRESS)(UINTN)PcdGet32 (PcdOvmfSecPageTablesBase),
-      (UINT64)(UINTN)PcdGet32 (PcdOvmfSecPageTablesSize),
-      EfiACPIMemoryNVS
-      );
-
-    if (MemEncryptSevEsIsEnabled ()) {
-      //
-      // If SEV-ES is enabled, reserve the GHCB-related memory area. This
-      // includes the extra page table used to break down the 2MB page
-      // mapping into 4KB page entries where the GHCB resides and the
-      // GHCB area itself.
-      //
-      // Since this memory range will be used by the Reset Vector on S3
-      // resume, it must be reserved as ACPI NVS.
-      //
-      BuildMemoryAllocationHob (
-        (EFI_PHYSICAL_ADDRESS)(UINTN)PcdGet32 (PcdOvmfSecGhcbPageTableBase),
-        (UINT64)(UINTN)PcdGet32 (PcdOvmfSecGhcbPageTableSize),
-        EfiACPIMemoryNVS
-        );
-      BuildMemoryAllocationHob (
-        (EFI_PHYSICAL_ADDRESS)(UINTN)PcdGet32 (PcdOvmfSecGhcbBase),
-        (UINT64)(UINTN)PcdGet32 (PcdOvmfSecGhcbSize),
-        EfiACPIMemoryNVS
-        );
-      BuildMemoryAllocationHob (
-        (EFI_PHYSICAL_ADDRESS)(UINTN)PcdGet32 (PcdOvmfSecGhcbBackupBase),
-        (UINT64)(UINTN)PcdGet32 (PcdOvmfSecGhcbBackupSize),
-        EfiACPIMemoryNVS
-        );
-    }
-
- #endif
-  }
-
-  if (mBootMode != BOOT_ON_S3_RESUME) {
-    if (!FeaturePcdGet (PcdSmmSmramRequire)) {
-      //
-      // Reserve the lock box storage area
-      //
-      // Since this memory range will be used on S3 resume, it must be
-      // reserved as ACPI NVS.
-      //
-      // If S3 is unsupported, then various drivers might still write to the
-      // LockBox area. We ought to prevent DXE from serving allocation requests
-      // such that they would overlap the LockBox storage.
-      //
-      ZeroMem (
-        (VOID *)(UINTN)PcdGet32 (PcdOvmfLockBoxStorageBase),
-        (UINTN)PcdGet32 (PcdOvmfLockBoxStorageSize)
-        );
-      BuildMemoryAllocationHob (
-        (EFI_PHYSICAL_ADDRESS)(UINTN)PcdGet32 (PcdOvmfLockBoxStorageBase),
-        (UINT64)(UINTN)PcdGet32 (PcdOvmfLockBoxStorageSize),
-        mS3Supported ? EfiACPIMemoryNVS : EfiBootServicesData
-        );
-    }
-
-    if (FeaturePcdGet (PcdSmmSmramRequire)) {
-      UINT32  TsegSize;
-
-      //
-      // Make sure the TSEG area that we reported as a reserved memory resource
-      // cannot be used for reserved memory allocations.
-      //
-      TsegSize = mQ35TsegMbytes * SIZE_1MB;
-      BuildMemoryAllocationHob (
-        GetSystemMemorySizeBelow4gb () - TsegSize,
-        TsegSize,
-        EfiReservedMemoryType
-        );
-      //
-      // Similarly, allocate away the (already reserved) SMRAM at the default
-      // SMBASE, if it exists.
-      //
-      if (mQ35SmramAtDefaultSmbase) {
-        BuildMemoryAllocationHob (
-          SMM_DEFAULT_SMBASE,
-          MCH_DEFAULT_SMBASE_SIZE,
-          EfiReservedMemoryType
-          );
-      }
-    }
-
- #ifdef MDE_CPU_X64
-    if (FixedPcdGet32 (PcdOvmfWorkAreaSize) != 0) {
-      //
-      // Reserve the work area.
-      //
-      // Since this memory range will be used by the Reset Vector on S3
-      // resume, it must be reserved as ACPI NVS.
-      //
-      // If S3 is unsupported, then various drivers might still write to the
-      // work area. We ought to prevent DXE from serving allocation requests
-      // such that they would overlap the work area.
-      //
-      BuildMemoryAllocationHob (
-        (EFI_PHYSICAL_ADDRESS)(UINTN)FixedPcdGet32 (PcdOvmfWorkAreaBase),
-        (UINT64)(UINTN)FixedPcdGet32 (PcdOvmfWorkAreaSize),
-        mS3Supported ? EfiACPIMemoryNVS : EfiBootServicesData
-        );
-    }
-
- #endif
-
-    //
-    //
-    //
-    LowerMemorySize = GetSystemMemorySizeBelow4gb ();
-    AsanShadowMemorySize = LowerMemorySize>>3;
-    AsanShadowMemoryStart = LowerMemorySize/8;
-    BuildMemoryAllocationHob (
-      AsanShadowMemoryStart,
-      AsanShadowMemorySize,
-      EfiRuntimeServicesData
-      );
-
-    DEBUG ((EFI_D_INFO, "LowerMemorySize = 0x%x\n", LowerMemorySize));
-    DEBUG ((EFI_D_INFO, "AsanShadowMemoryStart = 0x%x\n", AsanShadowMemoryStart));
-    DEBUG ((EFI_D_INFO, "AsanShadowMemorySize = 0x%x\n", AsanShadowMemorySize));
-    ZeroMem ((VOID *) (UINTN) AsanShadowMemoryStart, AsanShadowMemorySize);
-
-    //
-    // Build HOB for AsanInfo
-    //
-    AsanInfo.AsanShadowMemorySize = AsanShadowMemorySize;
-    AsanInfo.AsanShadowMemoryStart = AsanShadowMemoryStart;
-    AsanInfo.AsanInited = 1;
-    AsanInfo.AsanActivated = 1;
-    BuildGuidDataHob (
-      &gAsanInfoGuid,
-      &AsanInfo,
-      sizeof (ASAN_INFO)
-      );
-  }
-=======
   if (TdIsEnabled ()) {
     PlatformTdxPublishRamRegions ();
     return;
@@ -555,5 +371,31 @@ InitializeRamRegions (
   SevInitializeRam ();
 
   PlatformQemuInitializeRamForS3 (PlatformInfoHob);
->>>>>>> 70b174e24db4a6de1590fda65846074dcb9fd7d3
+
+  LowerMemorySize = GetSystemMemorySizeBelow4gb ();
+  AsanShadowMemorySize = LowerMemorySize>>3;
+  AsanShadowMemoryStart = LowerMemorySize/8;
+  BuildMemoryAllocationHob (
+    AsanShadowMemoryStart,
+    AsanShadowMemorySize,
+    EfiRuntimeServicesData
+    );
+
+  DEBUG ((EFI_D_INFO, "LowerMemorySize = 0x%x\n", LowerMemorySize));
+  DEBUG ((EFI_D_INFO, "AsanShadowMemoryStart = 0x%x\n", AsanShadowMemoryStart));
+  DEBUG ((EFI_D_INFO, "AsanShadowMemorySize = 0x%x\n", AsanShadowMemorySize));
+  ZeroMem ((VOID *) (UINTN) AsanShadowMemoryStart, AsanShadowMemorySize);
+
+  //
+  // Build HOB for AsanInfo
+  //
+  AsanInfo.AsanShadowMemorySize = AsanShadowMemorySize;
+  AsanInfo.AsanShadowMemoryStart = AsanShadowMemoryStart;
+  AsanInfo.AsanInited = 1;
+  AsanInfo.AsanActivated = 1;
+  BuildGuidDataHob (
+    &gAsanInfoGuid,
+    &AsanInfo,
+    sizeof (ASAN_INFO)
+    );
 }
