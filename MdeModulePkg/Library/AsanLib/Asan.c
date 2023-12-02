@@ -1465,6 +1465,37 @@ void __ubsan_handle_type_mismatch_v1(struct TypeMismatchData *Data, UINTN Pointe
 void __ubsan_handle_type_mismatch_v1_abort(UINTN *Data, UINTN Pointer) {
   SANITIZER_CALLSTACK_DUMP("__ubsan_handle_type_mismatch_v1_abort");
 }
+struct FunctionTypeMismatchData {
+  struct SourceLocation Loc;
+  struct TypeDescriptor *Type;
+};
+
+void __ubsan_handle_function_type_mismatch(struct FunctionTypeMismatchData *Data,
+                                           UINTN Pointer) {
+
+  CHAR8 NumStr[19];
+  SerialOutput (Data->Loc.file_name);
+  SerialOutput (", line:");
+  Num2Str16bit (Data->Loc.line, NumStr);
+  SerialOutput (NumStr);
+  SerialOutput (", column:");
+  Num2Str16bit (Data->Loc.column, NumStr);
+  SerialOutput (NumStr);
+  SerialOutput (" ErrorType = ");
+
+  SerialOutput ("Call to function through pointer to incorrect function type ");
+  SerialOutput (Data->Type->TypeName);
+  SerialOutput ("\n");
+
+  SANITIZER_CALLSTACK_DUMP("__ubsan_handle_function_type_mismatch");
+}
+
+void __ubsan_handle_function_type_mismatch_abort(struct FunctionTypeMismatchData *Data,
+                                                 UINTN Pointer) {
+
+  SANITIZER_CALLSTACK_DUMP("__ubsan_handle_function_type_mismatch_abort");
+}
+
 
 struct shift_out_of_bounds_data {
   struct SourceLocation location;

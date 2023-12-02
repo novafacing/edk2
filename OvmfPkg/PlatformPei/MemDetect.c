@@ -361,6 +361,11 @@ InitializeRamRegions (
   IN EFI_HOB_PLATFORM_INFO  *PlatformInfoHob
   )
 {
+  UINT64                      LowerMemorySize;
+  UINT64                      AsanShadowMemorySize;
+  UINT64                      AsanShadowMemoryStart;
+  ASAN_INFO                   AsanInfo;
+
   if (TdIsEnabled ()) {
     PlatformTdxPublishRamRegions ();
     return;

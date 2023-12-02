@@ -502,6 +502,21 @@ void __ubsan_handle_type_mismatch_v1(struct TypeMismatchData *Data, UINTN Pointe
 void __ubsan_handle_type_mismatch_v1_abort(UINTN *Data, UINTN Pointer) {
 
 }
+struct FunctionTypeMismatchData {
+  struct SourceLocation Loc;
+  struct TypeDescriptor *Type;
+};
+
+void __ubsan_handle_function_type_mismatch(struct FunctionTypeMismatchData *Data,
+                                           UINTN Pointer) {
+
+}
+
+void __ubsan_handle_function_type_mismatch_abort(struct FunctionTypeMismatchData *Data,
+                                                 UINTN Pointer) {
+
+}
+
 
 struct shift_out_of_bounds_data {
   struct SourceLocation location;
