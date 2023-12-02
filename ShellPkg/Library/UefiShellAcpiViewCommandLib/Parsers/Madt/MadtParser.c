@@ -1,7 +1,8 @@
 /** @file
   MADT table parser
 
-  Copyright (c) 2016 - 2020, ARM Limited. All rights reserved.
+  Copyright (c) 2016 - 2023, ARM Limited. All rights reserved.
+  Copyright (c) 2022, AMD Incorporated. All rights reserved.
   SPDX-License-Identifier: BSD-2-Clause-Patent
 
   @par Reference(s):
@@ -97,6 +98,48 @@ ValidateSpeOverflowInterrupt (
 }
 
 /**
+  This function validates the TRBE Interrupt in the GICC.
+
+  @param [in] Ptr     Pointer to the start of the field data.
+  @param [in] Context Pointer to context specific information e.g. this
+                      could be a pointer to the ACPI table header.
+**/
+STATIC
+VOID
+EFIAPI
+ValidateTrbeInterrupt (
+  IN UINT8  *Ptr,
+  IN VOID   *Context
+  )
+{
+  UINT16  TrbeInterrupt;
+
+  TrbeInterrupt = *(UINT16 *)Ptr;
+
+  // SPE not supported by this processor
+  if (TrbeInterrupt == 0) {
+    return;
+  }
+
+  if ((TrbeInterrupt < ARM_PPI_ID_MIN) ||
+      ((TrbeInterrupt > ARM_PPI_ID_MAX) &&
+       (TrbeInterrupt < ARM_PPI_ID_EXTENDED_MIN)) ||
+      (TrbeInterrupt > ARM_PPI_ID_EXTENDED_MAX))
+  {
+    IncrementErrorCount ();
+    Print (
+      L"\nERROR: TRBE Interrupt ID of %d is not in the allowed PPI ID "
+      L"ranges of %d-%d or %d-%d (for GICv3.1 or later).",
+      TrbeInterrupt,
+      ARM_PPI_ID_MIN,
+      ARM_PPI_ID_MAX,
+      ARM_PPI_ID_EXTENDED_MIN,
+      ARM_PPI_ID_EXTENDED_MAX
+      );
+  }
+}
+
+/**
   An ACPI_PARSER array describing the GICC Interrupt Controller Structure.
 **/
 STATIC CONST ACPI_PARSER  GicCParser[] = {
@@ -121,7 +164,9 @@ STATIC CONST ACPI_PARSER  GicCParser[] = {
     NULL },
   { L"Reserved",                         1, 77, L"0x%x",  NULL, NULL, NULL, NULL },
   { L"SPE overflow Interrupt",           2, 78, L"0x%x",  NULL, NULL,
-    ValidateSpeOverflowInterrupt, NULL }
+    ValidateSpeOverflowInterrupt, NULL },
+  { L"TRBE Interrupt",                   2, 80, L"0x%x",  NULL, NULL,
+    ValidateTrbeInterrupt, NULL }
 };
 
 /**
@@ -206,17 +251,65 @@ STATIC CONST ACPI_PARSER  InterruptSourceOverride[] = {
   { L"Flags",                   2, 8, L"0x%x", NULL, NULL, NULL, NULL }
 };
 
+STATIC CONST ACPI_PARSER  LocalApicFlags[] = {
+  { L"Enabled",        1,  0, L"%d", NULL, NULL, NULL, NULL },
+  { L"Online Capable", 1,  1, L"%d", NULL, NULL, NULL, NULL },
+  { L"Reserved",       30, 2, L"%d", NULL, NULL, NULL, NULL }
+};
+
+/**
+  This function traces Bit Flags fields.
+  If no format string is specified the Format must be NULL.
+
+  @param [in] Format  Optional format string for tracing the data.
+  @param [in] Ptr     Pointer to the start of the buffer.
+**/
+VOID
+EFIAPI
+DumpLocalApicBitFlags (
+  IN CONST CHAR16  *Format OPTIONAL,
+  IN UINT8         *Ptr
+  )
+{
+  if (Format != NULL) {
+    Print (Format, *(UINT32 *)Ptr);
+    return;
+  }
+
+  Print (L"0x%X\n", *(UINT32 *)Ptr);
+  ParseAcpiBitFields (
+    TRUE,
+    2,
+    NULL,
+    Ptr,
+    4,
+    PARSER_PARAMS (LocalApicFlags)
+    );
+}
+
+/**
+   An ACPI_PARSER array describing the Processor Local APIC Structure.
+ **/
+STATIC CONST ACPI_PARSER  ProcessorLocalApic[] = {
+  { L"Type",               1, 0, L"0x%x", NULL,                  NULL, NULL, NULL },
+  { L"Length",             1, 1, L"%d",   NULL,                  NULL, NULL, NULL },
+
+  { L"ACPI Processor UID", 1, 2, L"0x%x", NULL,                  NULL, NULL, NULL },
+  { L"APIC ID",            1, 3, L"0x%x", NULL,                  NULL, NULL, NULL },
+  { L"Flags",              4, 4, NULL,    DumpLocalApicBitFlags, NULL, NULL, NULL }
+};
+
 /**
   An ACPI_PARSER array describing the Processor Local x2APIC Structure.
 **/
 STATIC CONST ACPI_PARSER  ProcessorLocalX2Apic[] = {
-  { L"Type",               1, 0,  L"0x%x", NULL, NULL, NULL, NULL },
-  { L"Length",             1, 1,  L"%d",   NULL, NULL, NULL, NULL },
-  { L"Reserved",           2, 2,  L"0x%x", NULL, NULL, NULL, NULL },
+  { L"Type",               1, 0,  L"0x%x", NULL,                  NULL, NULL, NULL },
+  { L"Length",             1, 1,  L"%d",   NULL,                  NULL, NULL, NULL },
+  { L"Reserved",           2, 2,  L"0x%x", NULL,                  NULL, NULL, NULL },
 
-  { L"X2APIC ID",          4, 4,  L"0x%x", NULL, NULL, NULL, NULL },
-  { L"Flags",              4, 8,  L"0x%x", NULL, NULL, NULL, NULL },
-  { L"ACPI Processor UID", 4, 12, L"0x%x", NULL, NULL, NULL, NULL }
+  { L"X2APIC ID",          4, 4,  L"0x%x", NULL,                  NULL, NULL, NULL },
+  { L"Flags",              4, 8,  NULL,    DumpLocalApicBitFlags, NULL, NULL, NULL },
+  { L"ACPI Processor UID", 4, 12, L"0x%x", NULL,                  NULL, NULL, NULL }
 };
 
 /**
@@ -441,7 +534,18 @@ ParseAcpiMadt (
           );
         break;
       }
-
+      case EFI_ACPI_6_3_PROCESSOR_LOCAL_APIC:
+      {
+        ParseAcpi (
+          TRUE,
+          2,
+          "PROCESSOR LOCAL APIC",
+          InterruptContollerPtr,
+          *MadtInterruptControllerLength,
+          PARSER_PARAMS (ProcessorLocalApic)
+          );
+        break;
+      }
       case EFI_ACPI_6_3_PROCESSOR_LOCAL_X2APIC:
       {
         ParseAcpi (

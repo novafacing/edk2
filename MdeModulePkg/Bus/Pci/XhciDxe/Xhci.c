@@ -1,7 +1,8 @@
 /** @file
   The XHCI controller driver.
 
-Copyright (c) 2011 - 2018, Intel Corporation. All rights reserved.<BR>
+(C) Copyright 2023 Hewlett Packard Enterprise Development LP<BR>
+Copyright (c) 2011 - 2022, Intel Corporation. All rights reserved.<BR>
 SPDX-License-Identifier: BSD-2-Clause-Patent
 
 **/
@@ -84,6 +85,11 @@ EFI_USB2_HC_PROTOCOL  gXhciUsb2HcTemplate = {
   0x3,
   0x0
 };
+
+UINT64   mPerformanceCounterStartValue;
+UINT64   mPerformanceCounterEndValue;
+UINT64   mPerformanceCounterFrequency;
+BOOLEAN  mPerformanceCounterValuesCached = FALSE;
 
 /**
   Retrieves the capability of root hub ports.
@@ -371,6 +377,7 @@ XhcGetRootHubPortStatus (
   UINT32             TotalPort;
   UINTN              Index;
   UINTN              MapSize;
+  UINT8              PortSpeed;
   EFI_STATUS         Status;
   USB_DEV_ROUTE      ParentRouteChart;
   EFI_TPL            OldTpl;
@@ -397,26 +404,38 @@ XhcGetRootHubPortStatus (
 
   State = XhcReadOpReg (Xhc, Offset);
 
+  PortSpeed = (State & XHC_PORTSC_PS) >> 10;
+
   //
   // According to XHCI 1.1 spec November 2017,
-  // bit 10~13 of the root port status register identifies the speed of the attached device.
+  // Section 7.2 xHCI Support Protocol Capability
   //
-  switch ((State & XHC_PORTSC_PS) >> 10) {
-    case 2:
-      PortStatus->PortStatus |= USB_PORT_STAT_LOW_SPEED;
-      break;
+  if (PortSpeed > 0) {
+    PortStatus->PortStatus = XhcCheckUsbPortSpeedUsedPsic (Xhc, PortSpeed, PortNumber);
+    // If no match found in ext cap reg, fall back to PORTSC
+    if (PortStatus->PortStatus == 0) {
+      //
+      // According to XHCI 1.1 spec November 2017,
+      // bit 10~13 of the root port status register identifies the speed of the attached device.
+      //
+      switch (PortSpeed) {
+        case 2:
+          PortStatus->PortStatus |= USB_PORT_STAT_LOW_SPEED;
+          break;
 
-    case 3:
-      PortStatus->PortStatus |= USB_PORT_STAT_HIGH_SPEED;
-      break;
+        case 3:
+          PortStatus->PortStatus |= USB_PORT_STAT_HIGH_SPEED;
+          break;
 
-    case 4:
-    case 5:
-      PortStatus->PortStatus |= USB_PORT_STAT_SUPER_SPEED;
-      break;
+        case 4:
+        case 5:
+          PortStatus->PortStatus |= USB_PORT_STAT_SUPER_SPEED;
+          break;
 
-    default:
-      break;
+        default:
+          break;
+      }
+    }
   }
 
   //
@@ -458,7 +477,16 @@ XhcGetRootHubPortStatus (
   // For those devices behind hub, we get its attach/detach event by hooking Get_Port_Status request at control transfer for those hub.
   //
   ParentRouteChart.Dword = 0;
-  XhcPollPortStatusChange (Xhc, ParentRouteChart, PortNumber, PortStatus);
+  Status                 = XhcPollPortStatusChange (Xhc, ParentRouteChart, PortNumber, PortStatus);
+
+  //
+  // Force resetting the port by clearing the USB_PORT_STAT_C_RESET bit in PortChangeStatus
+  // when XhcPollPortStatusChange fails
+  //
+  if (EFI_ERROR (Status)) {
+    PortStatus->PortChangeStatus &= ~(USB_PORT_STAT_C_RESET);
+    Status                        = EFI_SUCCESS;
+  }
 
 ON_EXIT:
   gBS->RestoreTPL (OldTpl);
@@ -1235,6 +1263,7 @@ XhcBulkTransfer (
   UINT8              SlotId;
   EFI_STATUS         Status;
   EFI_TPL            OldTpl;
+  UINTN              DebugErrorLevel;
 
   //
   // Validate the parameters
@@ -1297,7 +1326,13 @@ XhcBulkTransfer (
 
 ON_EXIT:
   if (EFI_ERROR (Status)) {
-    DEBUG ((DEBUG_ERROR, "XhcBulkTransfer: error - %r, transfer - %x\n", Status, *TransferResult));
+    if (Status == EFI_TIMEOUT) {
+      DebugErrorLevel = DEBUG_VERBOSE;
+    } else {
+      DebugErrorLevel = DEBUG_ERROR;
+    }
+
+    DEBUG ((DebugErrorLevel, "XhcBulkTransfer: error - %r, transfer - %x\n", Status, *TransferResult));
   }
 
   gBS->RestoreTPL (OldTpl);
@@ -1813,13 +1848,21 @@ XhcCreateUsbHc (
   // This xHC supports a page size of 2^(n+12) if bit n is Set. For example,
   // if bit 0 is Set, the xHC supports 4k byte page sizes.
   //
-  PageSize      = XhcReadOpReg (Xhc, XHC_PAGESIZE_OFFSET) & XHC_PAGESIZE_MASK;
+  PageSize = XhcReadOpReg (Xhc, XHC_PAGESIZE_OFFSET);
+  if ((PageSize & (~XHC_PAGESIZE_MASK)) != 0) {
+    DEBUG ((DEBUG_ERROR, "XhcCreateUsb3Hc: Reserved bits are not 0 for PageSize\n"));
+    goto ON_ERROR;
+  }
+
+  PageSize     &= XHC_PAGESIZE_MASK;
   Xhc->PageSize = 1 << (HighBitSet32 (PageSize) + 12);
 
   ExtCapReg              = (UINT16)(Xhc->HcCParams.Data.ExtCapReg);
   Xhc->ExtCapRegBase     = ExtCapReg << 2;
   Xhc->UsbLegSupOffset   = XhcGetCapabilityAddr (Xhc, XHC_CAP_USB_LEGACY);
   Xhc->DebugCapSupOffset = XhcGetCapabilityAddr (Xhc, XHC_CAP_USB_DEBUG);
+  Xhc->Usb2SupOffset     = XhcGetSupportedProtocolCapabilityAddr (Xhc, XHC_SUPPORTED_PROTOCOL_DW0_MAJOR_REVISION_USB2);
+  Xhc->Usb3SupOffset     = XhcGetSupportedProtocolCapabilityAddr (Xhc, XHC_SUPPORTED_PROTOCOL_DW0_MAJOR_REVISION_USB3);
 
   DEBUG ((DEBUG_INFO, "XhcCreateUsb3Hc: Capability length 0x%x\n", Xhc->CapLength));
   DEBUG ((DEBUG_INFO, "XhcCreateUsb3Hc: HcSParams1 0x%x\n", Xhc->HcSParams1));
@@ -1829,6 +1872,8 @@ XhcCreateUsbHc (
   DEBUG ((DEBUG_INFO, "XhcCreateUsb3Hc: RTSOff 0x%x\n", Xhc->RTSOff));
   DEBUG ((DEBUG_INFO, "XhcCreateUsb3Hc: UsbLegSupOffset 0x%x\n", Xhc->UsbLegSupOffset));
   DEBUG ((DEBUG_INFO, "XhcCreateUsb3Hc: DebugCapSupOffset 0x%x\n", Xhc->DebugCapSupOffset));
+  DEBUG ((DEBUG_INFO, "XhcCreateUsb3Hc: Usb2SupOffset 0x%x\n", Xhc->Usb2SupOffset));
+  DEBUG ((DEBUG_INFO, "XhcCreateUsb3Hc: Usb3SupOffset 0x%x\n", Xhc->Usb3SupOffset));
 
   //
   // Create AsyncRequest Polling Timer
@@ -2020,7 +2065,7 @@ XhcDriverBindingStart (
       DEBUG ((
         DEBUG_WARN,
         "%a: failed to enable 64-bit DMA on 64-bit capable controller @ %p (%r)\n",
-        __FUNCTION__,
+        __func__,
         Controller,
         Status
         ));
@@ -2254,4 +2299,115 @@ XhcDriverBindingStop (
   FreePool (Xhc);
 
   return EFI_SUCCESS;
+}
+
+/**
+  Converts a time in nanoseconds to a performance counter tick count.
+
+  @param  Time  The time in nanoseconds to be converted to performance counter ticks.
+  @return Time in nanoseconds converted to ticks.
+**/
+UINT64
+XhcConvertTimeToTicks (
+  IN UINT64  Time
+  )
+{
+  UINT64  Ticks;
+  UINT64  Remainder;
+  UINT64  Divisor;
+  UINTN   Shift;
+
+  // Cache the return values to avoid repeated calls to GetPerformanceCounterProperties ()
+  if (!mPerformanceCounterValuesCached) {
+    mPerformanceCounterFrequency = GetPerformanceCounterProperties (
+                                     &mPerformanceCounterStartValue,
+                                     &mPerformanceCounterEndValue
+                                     );
+
+    mPerformanceCounterValuesCached = TRUE;
+  }
+
+  // Prevent returning a tick value of 0, unless Time is already 0
+  if (0 == mPerformanceCounterFrequency) {
+    return Time;
+  }
+
+  // Nanoseconds per second
+  Divisor = 1000000000;
+
+  //
+  //           Frequency
+  // Ticks = ------------- x Time
+  //         1,000,000,000
+  //
+  Ticks = MultU64x64 (
+            DivU64x64Remainder (
+              mPerformanceCounterFrequency,
+              Divisor,
+              &Remainder
+              ),
+            Time
+            );
+
+  //
+  // Ensure (Remainder * Time) will not overflow 64-bit.
+  //
+  // HighBitSet64 (Remainder) + 1 + HighBitSet64 (Time) + 1 <= 64
+  //
+  Shift     = MAX (0, HighBitSet64 (Remainder) + HighBitSet64 (Time) - 62);
+  Remainder = RShiftU64 (Remainder, (UINTN)Shift);
+  Divisor   = RShiftU64 (Divisor, (UINTN)Shift);
+  Ticks    += DivU64x64Remainder (MultU64x64 (Remainder, Time), Divisor, NULL);
+
+  return Ticks;
+}
+
+/**
+  Computes and returns the elapsed ticks since PreviousTick. The
+  value of PreviousTick is overwritten with the current performance
+  counter value.
+
+  @param  PreviousTick    Pointer to PreviousTick count.
+  @return The elapsed ticks since PreviousCount. PreviousCount is
+          overwritten with the current performance counter value.
+**/
+UINT64
+XhcGetElapsedTicks (
+  IN OUT UINT64  *PreviousTick
+  )
+{
+  UINT64  CurrentTick;
+  UINT64  Delta;
+
+  CurrentTick = GetPerformanceCounter ();
+
+  //
+  // Determine if the counter is counting up or down
+  //
+  if (mPerformanceCounterStartValue < mPerformanceCounterEndValue) {
+    //
+    // Counter counts upwards, check for an overflow condition
+    //
+    if (*PreviousTick > CurrentTick) {
+      Delta = (mPerformanceCounterEndValue - *PreviousTick) + CurrentTick;
+    } else {
+      Delta = CurrentTick - *PreviousTick;
+    }
+  } else {
+    //
+    // Counter counts downwards, check for an underflow condition
+    //
+    if (*PreviousTick < CurrentTick) {
+      Delta = (mPerformanceCounterStartValue - CurrentTick) + *PreviousTick;
+    } else {
+      Delta = *PreviousTick - CurrentTick;
+    }
+  }
+
+  //
+  // Set PreviousTick to CurrentTick
+  //
+  *PreviousTick = CurrentTick;
+
+  return Delta;
 }

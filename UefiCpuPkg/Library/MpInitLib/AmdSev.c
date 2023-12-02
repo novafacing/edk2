@@ -8,7 +8,7 @@
 **/
 
 #include "MpLib.h"
-#include <Library/VmgExitLib.h>
+#include <Library/CcExitLib.h>
 
 /**
   Get Protected mode code segment with 16-bit default addressing
@@ -110,11 +110,7 @@ MpInitLibSevEsAPReset (
   Code16 = GetProtectedMode16CS ();
   Code32 = GetProtectedMode32CS ();
 
-  if (CpuMpData->WakeupBufferHigh != 0) {
-    APResetFn = (AP_RESET *)(CpuMpData->WakeupBufferHigh + CpuMpData->AddressMap.SwitchToRealNoNxOffset);
-  } else {
-    APResetFn = (AP_RESET *)(CpuMpData->MpCpuExchangeInfo->BufferStart + CpuMpData->AddressMap.SwitchToRealOffset);
-  }
+  APResetFn = (AP_RESET *)(CpuMpData->WakeupBufferHigh + CpuMpData->AddressMap.SwitchToRealNoNxOffset);
 
   BufferStart = CpuMpData->MpCpuExchangeInfo->BufferStart;
   StackStart  = CpuMpData->SevEsAPResetStackStart -
@@ -213,7 +209,7 @@ SevEsPlaceApHlt (
     Msr.GhcbPhysicalAddress = AsmReadMsr64 (MSR_SEV_ES_GHCB);
     Ghcb                    = Msr.Ghcb;
 
-    VmgInit (Ghcb, &InterruptState);
+    CcExitVmgInit (Ghcb, &InterruptState);
 
     if (DoDecrement) {
       DoDecrement = FALSE;
@@ -225,13 +221,13 @@ SevEsPlaceApHlt (
       InterlockedDecrement ((UINT32 *)&CpuMpData->MpCpuExchangeInfo->NumApsExecuting);
     }
 
-    Status = VmgExit (Ghcb, SVM_EXIT_AP_RESET_HOLD, 0, 0);
+    Status = CcExitVmgExit (Ghcb, SVM_EXIT_AP_RESET_HOLD, 0, 0);
     if ((Status == 0) && (Ghcb->SaveArea.SwExitInfo2 != 0)) {
-      VmgDone (Ghcb, InterruptState);
+      CcExitVmgDone (Ghcb, InterruptState);
       break;
     }
 
-    VmgDone (Ghcb, InterruptState);
+    CcExitVmgDone (Ghcb, InterruptState);
   }
 
   //
@@ -260,7 +256,31 @@ FillExchangeInfoDataSevEs (
   if (StdRangeMax >= CPUID_EXTENDED_TOPOLOGY) {
     CPUID_EXTENDED_TOPOLOGY_EBX  ExtTopoEbx;
 
-    AsmCpuid (CPUID_EXTENDED_TOPOLOGY, NULL, &ExtTopoEbx.Uint32, NULL, NULL);
+    AsmCpuidEx (
+      CPUID_EXTENDED_TOPOLOGY,
+      0,
+      NULL,
+      &ExtTopoEbx.Uint32,
+      NULL,
+      NULL
+      );
     ExchangeInfo->ExtTopoAvail = !!ExtTopoEbx.Bits.LogicalProcessors;
   }
+}
+
+/**
+  Get pointer to CPU MP Data structure from GUIDed HOB.
+
+  @param[in] CpuMpData  The pointer to CPU MP Data structure.
+**/
+VOID
+AmdSevUpdateCpuMpData (
+  IN CPU_MP_DATA  *CpuMpData
+  )
+{
+  CPU_MP_DATA  *OldCpuMpData;
+
+  OldCpuMpData = GetCpuMpDataFromGuidedHob ();
+
+  OldCpuMpData->NewCpuMpData = CpuMpData;
 }

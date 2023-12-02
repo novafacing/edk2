@@ -12,6 +12,8 @@
 #include <Library/ArmMmuLib.h>
 #include <Library/CacheMaintenanceLib.h>
 #include <Library/DebugLib.h>
+#include <Library/HobLib.h>
+#include "ArmMmuLibInternal.h"
 
 EFI_STATUS
 EFIAPI
@@ -20,7 +22,9 @@ ArmMmuPeiLibConstructor (
   IN CONST EFI_PEI_SERVICES     **PeiServices
   )
 {
-  extern UINT32  ArmReplaceLiveTranslationEntrySize;
+  extern UINT32                       ArmReplaceLiveTranslationEntrySize;
+  ARM_REPLACE_LIVE_TRANSLATION_ENTRY  ArmReplaceLiveTranslationEntryFunc;
+  VOID                                *Hob;
 
   EFI_FV_FILE_INFO  FileInfo;
   EFI_STATUS        Status;
@@ -42,6 +46,20 @@ ArmMmuPeiLibConstructor (
        (UINTN)ArmReplaceLiveTranslationEntry + ArmReplaceLiveTranslationEntrySize))
   {
     DEBUG ((DEBUG_INFO, "ArmMmuLib: skipping cache maintenance on XIP PEIM\n"));
+
+    //
+    // Expose the XIP version of the ArmReplaceLiveTranslationEntry() routine
+    // via a HOB so we can fall back to it later when we need to split block
+    // mappings in a way that adheres to break-before-make requirements.
+    //
+    ArmReplaceLiveTranslationEntryFunc = ArmReplaceLiveTranslationEntry;
+
+    Hob = BuildGuidDataHob (
+            &gArmMmuReplaceLiveTranslationEntryFuncGuid,
+            &ArmReplaceLiveTranslationEntryFunc,
+            sizeof ArmReplaceLiveTranslationEntryFunc
+            );
+    ASSERT (Hob != NULL);
   } else {
     DEBUG ((DEBUG_INFO, "ArmMmuLib: performing cache maintenance on shadowed PEIM\n"));
     //

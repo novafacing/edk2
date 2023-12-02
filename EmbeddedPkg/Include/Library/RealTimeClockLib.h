@@ -39,7 +39,7 @@ LibGetTime (
 
   @retval EFI_SUCCESS           The operation completed successfully.
   @retval EFI_INVALID_PARAMETER A time field is out of range.
-  @retval EFI_DEVICE_ERROR      The time could not be set due due to hardware error.
+  @retval EFI_DEVICE_ERROR      The time could not be set due to hardware error.
 
 **/
 EFI_STATUS
@@ -103,21 +103,6 @@ EFIAPI
 LibRtcInitialize (
   IN EFI_HANDLE        ImageHandle,
   IN EFI_SYSTEM_TABLE  *SystemTable
-  );
-
-/**
-  Fixup internal data so that EFI can be call in virtual mode.
-  Call the passed in Child Notify event and convert any pointers in
-  lib to virtual mode.
-
-  @param[in]    Event   The Event that is being processed
-  @param[in]    Context Event Context
-**/
-VOID
-EFIAPI
-LibRtcVirtualNotifyEvent (
-  IN EFI_EVENT  Event,
-  IN VOID       *Context
   );
 
 #endif

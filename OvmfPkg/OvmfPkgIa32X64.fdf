@@ -11,7 +11,7 @@
 ################################################################################
 
 [Defines]
-!include OvmfPkgDefines.fdf.inc
+!include OvmfPkg/Include/Fdf/OvmfPkgDefines.fdf.inc
 
 #
 # Build the variable store and the firmware code as one unified flash device
@@ -24,7 +24,7 @@ ErasePolarity = 1
 BlockSize     = $(BLOCK_SIZE)
 NumBlocks     = $(FW_BLOCKS)
 
-!include VarStore.fdf.inc
+!include OvmfPkg/Include/Fdf/VarStore.fdf.inc
 
 $(VARS_SIZE)|$(FVMAIN_SIZE)
 FV = FVMAIN_COMPACT
@@ -43,7 +43,7 @@ ErasePolarity = 1
 BlockSize     = $(BLOCK_SIZE)
 NumBlocks     = $(VARS_BLOCKS)
 
-!include VarStore.fdf.inc
+!include OvmfPkg/Include/Fdf/VarStore.fdf.inc
 
 [FD.OVMF_CODE]
 BaseAddress   = $(CODE_BASE_ADDRESS)
@@ -89,6 +89,14 @@ FV = PEIFV
 0x100000|0x7F00000
 gUefiOvmfPkgTokenSpaceGuid.PcdOvmfDxeMemFvBase|gUefiOvmfPkgTokenSpaceGuid.PcdOvmfDxeMemFvSize
 FV = DXEFV
+
+##########################################################################################
+# Set the SEV-ES specific work area PCDs (used for all forms of SEV since the
+# the SEV STATUS MSR is now saved in the work area)
+#
+SET gUefiCpuPkgTokenSpaceGuid.PcdSevEsWorkAreaBase = $(MEMFD_BASE_ADDRESS) +  gUefiOvmfPkgTokenSpaceGuid.PcdOvmfWorkAreaBase + gUefiOvmfPkgTokenSpaceGuid.PcdOvmfConfidentialComputingWorkAreaHeader
+SET gUefiCpuPkgTokenSpaceGuid.PcdSevEsWorkAreaSize = gUefiOvmfPkgTokenSpaceGuid.PcdOvmfWorkAreaSize - gUefiOvmfPkgTokenSpaceGuid.PcdOvmfConfidentialComputingWorkAreaHeader
+##########################################################################################
 
 ################################################################################
 
@@ -164,7 +172,7 @@ INF  OvmfPkg/SmmAccess/SmmAccessPei.inf
 !endif
 INF  UefiCpuPkg/CpuMpPei/CpuMpPei.inf
 
-!include OvmfPkg/OvmfTpmPei.fdf.inc
+!include OvmfPkg/Include/Fdf/OvmfTpmPei.fdf.inc
 
 ################################################################################
 
@@ -210,10 +218,14 @@ INF  MdeModulePkg/Universal/PCD/Dxe/Pcd.inf
 INF  MdeModulePkg/Core/RuntimeDxe/RuntimeDxe.inf
 INF  MdeModulePkg/Universal/SecurityStubDxe/SecurityStubDxe.inf
 INF  MdeModulePkg/Universal/EbcDxe/EbcDxe.inf
-INF  OvmfPkg/8259InterruptControllerDxe/8259.inf
 INF  UefiCpuPkg/CpuIo2Dxe/CpuIo2Dxe.inf
 INF  UefiCpuPkg/CpuDxe/CpuDxe.inf
-INF  OvmfPkg/8254TimerDxe/8254Timer.inf
+!ifdef $(CSM_ENABLE)
+  INF OvmfPkg/8259InterruptControllerDxe/8259.inf
+  INF OvmfPkg/8254TimerDxe/8254Timer.inf
+!else
+  INF OvmfPkg/LocalApicTimerDxe/LocalApicTimerDxe.inf
+!endif
 INF  OvmfPkg/IncompatiblePciDeviceSupportDxe/IncompatiblePciDeviceSupport.inf
 INF  OvmfPkg/PciHotPlugInitDxe/PciHotPlugInit.inf
 INF  MdeModulePkg/Bus/Pci/PciHostBridgeDxe/PciHostBridgeDxe.inf
@@ -227,6 +239,7 @@ INF  OvmfPkg/Virtio10Dxe/Virtio10.inf
 INF  OvmfPkg/VirtioBlkDxe/VirtioBlk.inf
 INF  OvmfPkg/VirtioScsiDxe/VirtioScsi.inf
 INF  OvmfPkg/VirtioRngDxe/VirtioRng.inf
+INF  OvmfPkg/VirtioSerialDxe/VirtioSerial.inf
 !if $(PVSCSI_ENABLE) == TRUE
 INF  OvmfPkg/PvScsiDxe/PvScsiDxe.inf
 !endif
@@ -259,7 +272,7 @@ INF  MdeModulePkg/Universal/Disk/RamDiskDxe/RamDiskDxe.inf
 INF  MdeModulePkg/Universal/Disk/UnicodeCollation/EnglishDxe/EnglishDxe.inf
 INF  MdeModulePkg/Bus/Scsi/ScsiBusDxe/ScsiBusDxe.inf
 INF  MdeModulePkg/Bus/Scsi/ScsiDiskDxe/ScsiDiskDxe.inf
-INF  OvmfPkg/SataControllerDxe/SataControllerDxe.inf
+INF  MdeModulePkg/Bus/Pci/SataControllerDxe/SataControllerDxe.inf
 INF  MdeModulePkg/Bus/Ata/AtaAtapiPassThru/AtaAtapiPassThru.inf
 INF  MdeModulePkg/Bus/Ata/AtaBusDxe/AtaBusDxe.inf
 INF  MdeModulePkg/Bus/Pci/NvmExpressDxe/NvmExpressDxe.inf
@@ -287,12 +300,14 @@ INF  FatPkg/EnhancedFatDxe/Fat.inf
 INF  MdeModulePkg/Universal/Disk/UdfDxe/UdfDxe.inf
 INF  OvmfPkg/VirtioFsDxe/VirtioFsDxe.inf
 
-!if $(TOOL_CHAIN_TAG) != "XCODE5"
+!if $(BUILD_SHELL) == TRUE && $(TOOL_CHAIN_TAG) != "XCODE5"
 INF  ShellPkg/DynamicCommand/TftpDynamicCommand/TftpDynamicCommand.inf
 INF  ShellPkg/DynamicCommand/HttpDynamicCommand/HttpDynamicCommand.inf
 INF  OvmfPkg/LinuxInitrdDynamicShellCommand/LinuxInitrdDynamicShellCommand.inf
 !endif
+!if $(BUILD_SHELL) == TRUE
 INF  ShellPkg/Application/Shell/Shell.inf
+!endif
 
 INF MdeModulePkg/Logo/LogoDxe.inf
 
@@ -364,7 +379,7 @@ INF  MdeModulePkg/Universal/Variable/RuntimeDxe/VariableRuntimeDxe.inf
 #
 # TPM support
 #
-!include OvmfPkg/OvmfTpmDxe.fdf.inc
+!include OvmfPkg/Include/Fdf/OvmfTpmDxe.fdf.inc
 
 ################################################################################
 
@@ -399,7 +414,7 @@ FILE FV_IMAGE = 9E21FD93-9C72-4c15-8C4B-E77F1DB2D792 {
    }
  }
 
-!include FvmainCompactScratchEnd.fdf.inc
+!include OvmfPkg/Include/Fdf/FvmainCompactScratchEnd.fdf.inc
 
 ################################################################################
 

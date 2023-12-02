@@ -62,7 +62,8 @@
   SmmMemLib
   DxeServicesLib
   AsanLib
-
+  SafeIntLib
+  ImagePropertiesRecordLib
 
 [Protocols]
   gEfiDxeSmmReadyToLockProtocolGuid             ## UNDEFINED # SmiHandlerRegister

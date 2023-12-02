@@ -10,6 +10,7 @@
 
   Copyright (c) 2019, Intel Corporation. All rights reserved.<BR>
   (C) Copyright 2021 Hewlett Packard Enterprise Development LP<BR>
+  Copyright (c) 2023, NVIDIA CORPORATION & AFFILIATES. All rights reserved.
 
   SPDX-License-Identifier: BSD-2-Clause-Patent
 
@@ -524,7 +525,7 @@ getOpResult (
   }
 
   stringProp = prop->json;
-  jsonType   = prop->json->type;
+  jsonType   = JsonGetType (prop->json);
   switch (jsonType) {
     case JSON_OBJECT:
       stringProp = json_object_get (prop->json, propName);
@@ -620,6 +621,7 @@ collectionEvalOp (
   if (((*StatusCode == NULL) && (members == NULL)) ||
       ((*StatusCode != NULL) && ((**StatusCode < HTTP_STATUS_200_OK) || (**StatusCode > HTTP_STATUS_206_PARTIAL_CONTENT))))
   {
+    free (valid);
     return members;
   }
 
@@ -633,6 +635,7 @@ collectionEvalOp (
     if (((*StatusCode == NULL) && (tmp == NULL)) ||
         ((*StatusCode != NULL) && ((**StatusCode < HTTP_STATUS_200_OK) || (**StatusCode > HTTP_STATUS_206_PARTIAL_CONTENT))))
     {
+      free (valid);
       return tmp;
     }
 
@@ -658,19 +661,15 @@ collectionEvalOp (
 
   cleanupPayload (members);
   if (validCount == 0) {
-    free (valid);
-    return NULL;
-  }
-
-  if (validCount == 1) {
+    ret = NULL;
+  } else if (validCount == 1) {
     ret = valid[0];
-    free (valid);
-    return ret;
   } else {
     ret = createCollection (payload->service, validCount, valid);
-    free (valid);
-    return ret;
   }
+
+  free (valid);
+  return ret;
 }
 
 static redfishPayload *

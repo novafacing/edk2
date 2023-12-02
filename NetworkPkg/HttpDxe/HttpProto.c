@@ -1073,18 +1073,31 @@ HttpConfigureTcp4 (
   Tcp4AP->ActiveFlag  = TRUE;
   IP4_COPY_ADDRESS (&Tcp4AP->RemoteAddress, &HttpInstance->RemoteAddr);
 
-  Tcp4Option                    = Tcp4CfgData->ControlOption;
-  Tcp4Option->ReceiveBufferSize = HTTP_BUFFER_SIZE_DEAULT;
-  Tcp4Option->SendBufferSize    = HTTP_BUFFER_SIZE_DEAULT;
-  Tcp4Option->MaxSynBackLog     = HTTP_MAX_SYN_BACK_LOG;
-  Tcp4Option->ConnectionTimeout = HTTP_CONNECTION_TIMEOUT;
-  Tcp4Option->DataRetries       = HTTP_DATA_RETRIES;
-  Tcp4Option->FinTimeout        = HTTP_FIN_TIMEOUT;
-  Tcp4Option->KeepAliveProbes   = HTTP_KEEP_ALIVE_PROBES;
-  Tcp4Option->KeepAliveTime     = HTTP_KEEP_ALIVE_TIME;
-  Tcp4Option->KeepAliveInterval = HTTP_KEEP_ALIVE_INTERVAL;
-  Tcp4Option->EnableNagle       = TRUE;
-  Tcp4CfgData->ControlOption    = Tcp4Option;
+  Tcp4Option                      = Tcp4CfgData->ControlOption;
+  Tcp4Option->ReceiveBufferSize   = HTTP_BUFFER_SIZE_DEAULT;
+  Tcp4Option->SendBufferSize      = HTTP_BUFFER_SIZE_DEAULT;
+  Tcp4Option->MaxSynBackLog       = HTTP_MAX_SYN_BACK_LOG;
+  Tcp4Option->ConnectionTimeout   = HTTP_CONNECTION_TIMEOUT;
+  Tcp4Option->DataRetries         = HTTP_DATA_RETRIES;
+  Tcp4Option->FinTimeout          = HTTP_FIN_TIMEOUT;
+  Tcp4Option->KeepAliveProbes     = HTTP_KEEP_ALIVE_PROBES;
+  Tcp4Option->KeepAliveTime       = HTTP_KEEP_ALIVE_TIME;
+  Tcp4Option->KeepAliveInterval   = HTTP_KEEP_ALIVE_INTERVAL;
+  Tcp4Option->EnableNagle         = TRUE;
+  Tcp4Option->EnableWindowScaling = TRUE;
+  Tcp4CfgData->ControlOption      = Tcp4Option;
+
+  if ((HttpInstance->State == HTTP_STATE_TCP_CONNECTED) ||
+      (HttpInstance->State == HTTP_STATE_TCP_CLOSED))
+  {
+    Status = HttpInstance->Tcp4->Configure (HttpInstance->Tcp4, NULL);
+    if (EFI_ERROR (Status)) {
+      DEBUG ((DEBUG_ERROR, "HttpConfigureTcp4(NULL) - %r\n", Status));
+      return Status;
+    }
+
+    HttpInstance->State = HTTP_STATE_TCP_UNCONFIGED;
+  }
 
   Status = HttpInstance->Tcp4->Configure (HttpInstance->Tcp4, Tcp4CfgData);
   if (EFI_ERROR (Status)) {
@@ -1144,17 +1157,30 @@ HttpConfigureTcp6 (
   IP6_COPY_ADDRESS (&Tcp6Ap->StationAddress, &HttpInstance->Ipv6Node.LocalAddress);
   IP6_COPY_ADDRESS (&Tcp6Ap->RemoteAddress, &HttpInstance->RemoteIpv6Addr);
 
-  Tcp6Option                    = Tcp6CfgData->ControlOption;
-  Tcp6Option->ReceiveBufferSize = HTTP_BUFFER_SIZE_DEAULT;
-  Tcp6Option->SendBufferSize    = HTTP_BUFFER_SIZE_DEAULT;
-  Tcp6Option->MaxSynBackLog     = HTTP_MAX_SYN_BACK_LOG;
-  Tcp6Option->ConnectionTimeout = HTTP_CONNECTION_TIMEOUT;
-  Tcp6Option->DataRetries       = HTTP_DATA_RETRIES;
-  Tcp6Option->FinTimeout        = HTTP_FIN_TIMEOUT;
-  Tcp6Option->KeepAliveProbes   = HTTP_KEEP_ALIVE_PROBES;
-  Tcp6Option->KeepAliveTime     = HTTP_KEEP_ALIVE_TIME;
-  Tcp6Option->KeepAliveInterval = HTTP_KEEP_ALIVE_INTERVAL;
-  Tcp6Option->EnableNagle       = TRUE;
+  Tcp6Option                      = Tcp6CfgData->ControlOption;
+  Tcp6Option->ReceiveBufferSize   = HTTP_BUFFER_SIZE_DEAULT;
+  Tcp6Option->SendBufferSize      = HTTP_BUFFER_SIZE_DEAULT;
+  Tcp6Option->MaxSynBackLog       = HTTP_MAX_SYN_BACK_LOG;
+  Tcp6Option->ConnectionTimeout   = HTTP_CONNECTION_TIMEOUT;
+  Tcp6Option->DataRetries         = HTTP_DATA_RETRIES;
+  Tcp6Option->FinTimeout          = HTTP_FIN_TIMEOUT;
+  Tcp6Option->KeepAliveProbes     = HTTP_KEEP_ALIVE_PROBES;
+  Tcp6Option->KeepAliveTime       = HTTP_KEEP_ALIVE_TIME;
+  Tcp6Option->KeepAliveInterval   = HTTP_KEEP_ALIVE_INTERVAL;
+  Tcp6Option->EnableNagle         = TRUE;
+  Tcp6Option->EnableWindowScaling = TRUE;
+
+  if ((HttpInstance->State == HTTP_STATE_TCP_CONNECTED) ||
+      (HttpInstance->State == HTTP_STATE_TCP_CLOSED))
+  {
+    Status = HttpInstance->Tcp6->Configure (HttpInstance->Tcp6, NULL);
+    if (EFI_ERROR (Status)) {
+      DEBUG ((DEBUG_ERROR, "HttpConfigureTcp6(NULL) - %r\n", Status));
+      return Status;
+    }
+
+    HttpInstance->State = HTTP_STATE_TCP_UNCONFIGED;
+  }
 
   Status = HttpInstance->Tcp6->Configure (HttpInstance->Tcp6, Tcp6CfgData);
   if (EFI_ERROR (Status)) {

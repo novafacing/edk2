@@ -251,7 +251,7 @@ IsSevGuest (
 
   WorkArea = (OVMF_WORK_AREA *)FixedPcdGet32 (PcdOvmfWorkAreaBase);
 
-  return ((WorkArea != NULL) && (WorkArea->Header.GuestType == GUEST_TYPE_AMD_SEV));
+  return ((WorkArea != NULL) && (WorkArea->Header.GuestType == CcGuestTypeAmdSev));
 }
 
 /**
@@ -284,7 +284,7 @@ SevEsIsEnabled (
 /**
  Validate System RAM used for decompressing the PEI and DXE firmware volumes
  when SEV-SNP is active. The PCDs SecValidatedStart and SecValidatedEnd are
- set in OvmfPkg/FvmainCompactScratchEnd.fdf.inc.
+ set in OvmfPkg/Include/Fdf/FvmainCompactScratchEnd.fdf.inc.
 
 **/
 VOID

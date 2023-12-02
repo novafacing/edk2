@@ -228,7 +228,7 @@ CoreInternalAllocatePool (
   // If it's not a valid type, fail it
   //
   if (((PoolType >= EfiMaxMemoryType) && (PoolType < MEMORY_TYPE_OEM_RESERVED_MIN)) ||
-      (PoolType == EfiConventionalMemory) || (PoolType == EfiPersistentMemory))
+      (PoolType == EfiConventionalMemory) || (PoolType == EfiPersistentMemory) || (PoolType == EfiUnacceptedMemoryType))
   {
     return EFI_INVALID_PARAMETER;
   }
@@ -832,7 +832,7 @@ CoreFreePoolI (
     NoPages  = EFI_SIZE_TO_PAGES (Size) + EFI_SIZE_TO_PAGES (Granularity) - 1;
     NoPages &= ~(UINTN)(EFI_SIZE_TO_PAGES (Granularity) - 1);
     if (IsGuarded) {
-      Head = AdjustPoolHeadF ((EFI_PHYSICAL_ADDRESS)(UINTN)Head);
+      Head = AdjustPoolHeadF ((EFI_PHYSICAL_ADDRESS)(UINTN)Head, NoPages, Size);
       CoreFreePoolPagesWithGuard (
         Pool->MemoryType,
         (EFI_PHYSICAL_ADDRESS)(UINTN)Head,

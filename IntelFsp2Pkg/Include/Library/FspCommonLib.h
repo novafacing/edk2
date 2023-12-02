@@ -38,7 +38,7 @@ GetFspGlobalDataPointer (
 
   @retval ApiParameter FSP API first parameter passed by the bootloader.
 **/
-UINT32
+UINTN
 EFIAPI
 GetFspApiParameter (
   VOID
@@ -49,7 +49,7 @@ GetFspApiParameter (
 
   @retval ApiParameter FSP API second parameter passed by the bootloader.
 **/
-UINT32
+UINTN
 EFIAPI
 GetFspApiParameter2 (
   VOID
@@ -87,7 +87,7 @@ SetFspApiParameter (
 VOID
 EFIAPI
 SetFspApiReturnStatus (
-  IN UINT32  ReturnStatus
+  IN UINTN  ReturnStatus
   );
 
 /**
@@ -189,6 +189,28 @@ SetFspSiliconInitUpdDataPointer (
 VOID *
 EFIAPI
 GetFspSiliconInitUpdDataPointer (
+  VOID
+  );
+
+/**
+  This function sets the smm init UPD data pointer.
+
+  @param[in] SmmInitUpdPtr   smm init UPD data pointer.
+**/
+VOID
+EFIAPI
+SetFspSmmInitUpdDataPointer (
+  IN VOID  *SmmInitUpdPtr
+  );
+
+/**
+  This function gets the smm init UPD data pointer.
+
+  @return smm init UPD data pointer.
+**/
+VOID *
+EFIAPI
+GetFspSmmInitUpdDataPointer (
   VOID
   );
 
@@ -302,7 +324,7 @@ SetPhaseStatusCode (
 VOID
 EFIAPI
 FspApiReturnStatusReset (
-  IN UINT32  FspResetType
+  IN EFI_STATUS  FspResetType
   );
 
 #endif

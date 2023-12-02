@@ -37,7 +37,7 @@
   HobLib
   FspWrapperPlatformLib
   FspWrapperHobProcessLib
-  UefiCpuLib
+  CpuLib
   PeCoffGetEntryPointLib
   PeCoffExtraActionLib
   PerformanceLib
@@ -45,6 +45,7 @@
   FspWrapperApiLib
   FspWrapperApiTestLib
   FspMeasurementLib
+  FspWrapperMultiPhaseProcessLib
 
 [Packages]
   MdePkg/MdePkg.dec

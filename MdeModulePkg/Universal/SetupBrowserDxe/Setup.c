@@ -2,7 +2,7 @@
 Entry and initialization module for the browser.
 
 Copyright (c) 2007 - 2018, Intel Corporation. All rights reserved.<BR>
-(C) Copyright 2020 Hewlett Packard Enterprise Development LP<BR>
+(C) Copyright 2020 - 2022 Hewlett Packard Enterprise Development LP<BR>
 SPDX-License-Identifier: BSD-2-Clause-Patent
 
 **/
@@ -68,7 +68,6 @@ extern EFI_GUID                  mCurrentFormSetGuid;
 extern EFI_HII_HANDLE            mCurrentHiiHandle;
 extern UINT16                    mCurrentFormId;
 extern FORM_DISPLAY_ENGINE_FORM  gDisplayFormData;
-extern BOOLEAN                   mDynamicFormUpdated;
 
 /**
   Create a menu with specified formset GUID and form ID, and add it as a child
@@ -539,7 +538,6 @@ SendForm (
 
       Selection->FormSet  = FormSet;
       mSystemLevelFormSet = FormSet;
-      mDynamicFormUpdated = FALSE;
 
       //
       // Display this formset
@@ -552,10 +550,9 @@ SendForm (
       mSystemLevelFormSet = NULL;
 
       //
-      // If callback update form dynamically, it's not exiting of the formset for user so system do not reconnect driver hanlde
-      // this time.
+      // Check incoming formset whether is same with previous. If yes, that means action is not exiting of formset so do not reconnect controller.
       //
-      if (!mDynamicFormUpdated && (gFlagReconnect || gCallbackReconnect)) {
+      if ((gFlagReconnect || gCallbackReconnect) && !CompareGuid (&FormSet->Guid, &Selection->FormSetGuid)) {
         RetVal = ReconnectController (FormSet->DriverHandle);
         if (!RetVal) {
           PopupErrorMessage (BROWSER_RECONNECT_FAIL, NULL, NULL, NULL);
@@ -5637,32 +5634,42 @@ LoadStorage (
     ConfigRequest = Storage->ConfigRequest;
   }
 
-  //
-  // Request current settings from Configuration Driver
-  //
-  Status = mHiiConfigRouting->ExtractConfig (
-                                mHiiConfigRouting,
-                                ConfigRequest,
-                                &Progress,
-                                &Result
-                                );
-
-  //
-  // If get value fail, extract default from IFR binary
-  //
-  if (EFI_ERROR (Status)) {
-    ExtractDefault (FormSet, NULL, EFI_HII_DEFAULT_CLASS_STANDARD, FormSetLevel, GetDefaultForStorage, Storage->BrowserStorage, TRUE, TRUE);
+  if (Storage->BrowserStorage->Type == EFI_HII_VARSTORE_EFI_VARIABLE_BUFFER) {
+    //
+    // Call GetVariable directly for EfiVarStore
+    //
+    Status = gRT->GetVariable (Storage->BrowserStorage->Name, &(Storage->BrowserStorage->Guid), NULL, (UINTN *)(&(Storage->BrowserStorage->Size)), Storage->BrowserStorage->EditBuffer);
+    if (EFI_ERROR (Status)) {
+      ExtractDefault (FormSet, NULL, EFI_HII_DEFAULT_CLASS_STANDARD, FormSetLevel, GetDefaultForStorage, Storage->BrowserStorage, TRUE, TRUE);
+    }
   } else {
     //
-    // Convert Result from <ConfigAltResp> to <ConfigResp>
+    // Request current settings from Configuration Driver
     //
-    StrPtr = StrStr (Result, L"&GUID=");
-    if (StrPtr != NULL) {
-      *StrPtr = L'\0';
-    }
+    Status = mHiiConfigRouting->ExtractConfig (
+                                  mHiiConfigRouting,
+                                  ConfigRequest,
+                                  &Progress,
+                                  &Result
+                                  );
 
-    Status = ConfigRespToStorage (Storage->BrowserStorage, Result);
-    FreePool (Result);
+    //
+    // If get value fail, extract default from IFR binary
+    //
+    if (EFI_ERROR (Status)) {
+      ExtractDefault (FormSet, NULL, EFI_HII_DEFAULT_CLASS_STANDARD, FormSetLevel, GetDefaultForStorage, Storage->BrowserStorage, TRUE, TRUE);
+    } else {
+      //
+      // Convert Result from <ConfigAltResp> to <ConfigResp>
+      //
+      StrPtr = StrStr (Result, L"&GUID=");
+      if (StrPtr != NULL) {
+        *StrPtr = L'\0';
+      }
+
+      Status = ConfigRespToStorage (Storage->BrowserStorage, Result);
+      FreePool (Result);
+    }
   }
 
   Storage->BrowserStorage->ConfigRequest = AllocateCopyPool (StrSize (Storage->ConfigRequest), Storage->ConfigRequest);

@@ -52,7 +52,7 @@
   IoLib
   HobLib
   PeCoffLib
-  UefiCpuLib
+  CpuLib
 
 [Guids]
   gEfiMemoryTypeInformationGuid
@@ -69,7 +69,6 @@
   gUniversalPayloadAcpiTableGuid
   gUniversalPayloadPciRootBridgeInfoGuid
   gUniversalPayloadSmbios3TableGuid
-  gEdkiiBootManagerMenuFileGuid
 
 [FeaturePcd.IA32]
   gEfiMdeModulePkgTokenSpaceGuid.PcdDxeIplSwitchToLongMode      ## CONSUMES
