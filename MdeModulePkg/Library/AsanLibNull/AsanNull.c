@@ -488,12 +488,20 @@ struct TypeMismatchData {
   unsigned char TypeCheckKind;
 };
 
+struct FunctionTypeMismatchData {
+  struct SourceLocation Loc;
+  struct TypeDescriptor *Type;
+};
+
 const char *TypeCheckKinds[] = {
     "load of", "store to", "reference binding to", "member access within",
     "member call on", "constructor call on", "downcast of", "downcast of",
     "upcast of", "cast to virtual base of", "_Nonnull binding to"
 };
 
+void __ubsan_handle_function_type_mismatch(struct FunctionTypeMismatchData *Data, UINTN Value) {
+
+}
 
 void __ubsan_handle_type_mismatch(struct TypeMismatchData *Data, UINTN Pointer) {
 
