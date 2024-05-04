@@ -1385,11 +1385,31 @@ struct TypeMismatchData {
   unsigned char TypeCheckKind;
 };
 
+struct FunctionTypeMismatchData {
+  struct SourceLocation Loc;
+  struct TypeDescriptor *Type;
+};
+
 const char *TypeCheckKinds[] = {
     "load of", "store to", "reference binding to", "member access within",
     "member call on", "constructor call on", "downcast of", "downcast of",
     "upcast of", "cast to virtual base of", "_Nonnull binding to"
 };
+
+void __ubsan_handle_function_type_mismatch(struct FunctionTypeMismatchData *Data, UINTN Value) {
+  CHAR8 NumStr[19];
+  SerialOutput (Data->Loc.file_name);
+  SerialOutput (", line:");
+  Num2Str16bit (Data->Loc.line, NumStr);
+  SerialOutput (NumStr);
+  SerialOutput (", column:");
+  Num2Str16bit (Data->Loc.column, NumStr);
+  SerialOutput (NumStr);
+  SerialOutput ("Call to function through pointer to incorrect function type: ");
+  SerialOutput (Data->Type->TypeName);
+  SANITIZER_CALLSTACK_DUMP("__ubsan_handle_function_type_mismatch");
+}
+
 
 
 void __ubsan_handle_type_mismatch(struct TypeMismatchData *Data, UINTN Pointer) {
@@ -1682,7 +1702,7 @@ RETURN_STATUS
 EFIAPI
 AsanPeiLibConstructor (
   IN EFI_PEI_FILE_HANDLE FileHandle,
-  IN CONST EFI_PEI_SERVICES PeiServices
+  IN CONST EFI_PEI_SERVICES **PeiServices
   )
 {
   EFI_STATUS                    Status;
