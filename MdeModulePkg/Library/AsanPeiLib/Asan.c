@@ -1649,7 +1649,10 @@ SetupAsanShadowMemory (
   EFI_HOB_GUID_TYPE     *GuidHob;
   ASAN_INFO             *AsanInfoPtr;
 
+  SerialOutput ("GetFirstGuidHob\n");
+
   GuidHob = GetFirstGuidHob (&gAsanInfoGuid);
+
   if (GuidHob == NULL) {
     asan_is_deactivated = TRUE;
     asan_inited = FALSE;
@@ -1659,6 +1662,8 @@ SetupAsanShadowMemory (
     SerialOutput ("Get hob of gAsanInfoGuid failed\n");
     return RETURN_UNSUPPORTED;
   } 
+
+  SerialOutput ("GET_GUID_HOB_DATA\n");
 
   AsanInfoPtr = GET_GUID_HOB_DATA (GuidHob);
   asan_inited = (AsanInfoPtr->AsanInited == 0)? FALSE: TRUE;;
@@ -1696,6 +1701,8 @@ SetupAsanShadowMemory (
     return RETURN_UNSUPPORTED;
   }
 
+  SerialOutput ("SetupAsanShadowMemory success\n")
+
   return RETURN_SUCCESS;
 }
 
@@ -1719,8 +1726,11 @@ AsanPeiLibConstructor (
 
     return RETURN_SUCCESS;//Status;
   } else {
+    SerialOutput ("Setting AsanCtorFlag\n");
     AsanCtorFlag = TRUE;
   }
+
+  SerialOutput ("SetupAsanShadowMemory\n");
 
   Status = SetupAsanShadowMemory();
 
