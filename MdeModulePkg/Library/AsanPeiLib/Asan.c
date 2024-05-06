@@ -1701,7 +1701,7 @@ SetupAsanShadowMemory (
     return RETURN_UNSUPPORTED;
   }
 
-  SerialOutput ("SetupAsanShadowMemory success\n")
+  SerialOutput ("SetupAsanShadowMemory success\n");
 
   return RETURN_SUCCESS;
 }
