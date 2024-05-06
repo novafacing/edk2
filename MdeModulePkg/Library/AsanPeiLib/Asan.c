@@ -1655,6 +1655,8 @@ SetupAsanShadowMemory (
     asan_inited = FALSE;
     mAsanShadowMemoryStart = 0;
     mAsanShadowMemorySize = 0;
+
+    SerialOutput ("Get hob of gAsanInfoGuid failed\n");
     return RETURN_UNSUPPORTED;
   } 
 
@@ -1708,22 +1710,29 @@ AsanPeiLibConstructor (
   EFI_STATUS                    Status;
   CHAR8                         NumStr[19];
   int                           size;
-  SerialOutput ("AsanLibConstructor begin\n");
+  SerialOutput ("AsanPeiLibConstructor begin\n");
   SerialOutput ("Get hob of gAsanInfoGuid\n");
 
   if (AsanCtorFlag) {
+
+    SerialOutput ("AsanCtorFlag set\n");
+
     return RETURN_SUCCESS;//Status;
   } else {
     AsanCtorFlag = TRUE;
   }
 
   Status = SetupAsanShadowMemory();
+
   if (EFI_ERROR(Status)){
+
+    SerialOutput ("SetupAsanShadowMemory failed\n");
+
     return RETURN_SUCCESS;//Status;
   }
 
   size = __preinit_array_end - __preinit_array_start;
-  SerialOutput ("AsanLibConstructor: preinit function pointers size = ");
+  SerialOutput ("AsanPeiLibConstructor: preinit function pointers size = ");
   Num2Str64bit ( size , NumStr);
   SerialOutput (NumStr);
   SerialOutput ("\n");
@@ -1733,7 +1742,7 @@ AsanPeiLibConstructor (
   }
 
   size = __init_array_end - __init_array_start;
-  SerialOutput ("AsanLibConstructor: init function pointers size = ");
+  SerialOutput ("AsanPeiLibConstructor: init function pointers size = ");
   Num2Str64bit ( size , NumStr);
   SerialOutput (NumStr);
   SerialOutput ("\n");
@@ -1742,6 +1751,6 @@ AsanPeiLibConstructor (
     (*__init_array_start [i]) (0, 0, 0);
   }
 
-  SerialOutput ("AsanLibConstructor done\n");
+  SerialOutput ("AsanPeiLibConstructor done\n");
   return RETURN_SUCCESS;
 }

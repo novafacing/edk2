@@ -19,7 +19,7 @@
   INF_VERSION                    = 0x00010005
   BASE_NAME                      = AsanPeiLib
   MODULE_UNI_FILE                = AsanPeiLib.uni
-  FILE_GUID                      = 36599735-C74D-4282-B693-D46D7B575FFF
+  FILE_GUID                      = f5117915-0b07-4c99-bc1d-ac4f68b4256f
   MODULE_TYPE                    = PEI_CORE
   VERSION_STRING                 = 1.0
   LIBRARY_CLASS                  = AsanPeiLib|PEIM PEI_CORE
@@ -41,7 +41,7 @@
   HobLib
 
 [Guids]
-  gAsanInfoGuid
+  gAsanPeiInfoGuid
 
 [BuildOptions]
   GCC:*_*_*_CC_FLAGS = -Wno-frame-address
