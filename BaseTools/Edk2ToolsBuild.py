@@ -146,7 +146,7 @@ class Edk2ToolsBuild(BaseAbstractInvocable):
             self.WritePathEnvFile(self.OutputDir)
             return ret
 
-        elif self.tool_chain_tag.lower().startswith("gcc"):
+        elif self.tool_chain_tag.lower().startswith("gcc") or self.tool_chain_tag.lower().startswith("clang"):
             cpu_count = self.GetCpuThreads()
 
             output_stream = edk2_logging.create_output_stream()
